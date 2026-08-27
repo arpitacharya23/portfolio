@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Arpit Acharya — Operations & Systems</title>
+<script>
+  // Runs before CSS paints to avoid a flash of the wrong theme.
+  (function(){
+    function themeForHour(h){
+      if(h >= 8 && h < 18) return 'light';                 // daytime
+      if((h >= 5 && h < 8) || (h >= 18 && h < 21)) return 'grey'; // dawn / dusk
+      return 'dark';                                        // night
+    }
+    document.documentElement.setAttribute('data-theme', themeForHour(new Date().getHours()));
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+
+  :root{
+    /* default palette (dark) — overridden by [data-theme] below */
+    --ink:#12161c;
+    --panel:#1a212b;
+    --panel-line:#2a3341;
+    --paper:#eeeae1;
+    --paper-dim:#a7aeb9;
+    --amber:#e8a13d;
+    --amber-dim:#8a651f;
+    --green:#5fbf8f;
+    --dot-rgb:238,234,225;
+    --glass-bg:rgba(26,33,43,0.82);
+    --scrim-bg:rgba(18,22,28,0.68);
+    --rail-bg:rgba(18,22,28,0.94);
+    --shell-shadow:rgba(0,0,0,0.25);
+    --font-display:'Space Grotesk', sans-serif;
+    --font-body:'Inter', sans-serif;
+    --font-mono:'IBM Plex Mono', monospace;
+    color-scheme:dark;
+  }
+
+  :root[data-theme="dark"]{
+    --ink:#12161c;
+    --panel:#1a212b;
+    --panel-line:#2a3341;
+    --paper:#eeeae1;
+    --paper-dim:#a7aeb9;
+    --amber:#e8a13d;
+    --amber-dim:#8a651f;
+    --green:#5fbf8f;
+    --dot-rgb:238,234,225;
+    --glass-bg:rgba(26,33,43,0.82);
+    --scrim-bg:rgba(18,22,28,0.68);
+    --rail-bg:rgba(18,22,28,0.94);
+    --shell-shadow:rgba(0,0,0,0.25);
+    color-scheme:dark;
+  }
+
+  :root[data-theme="grey"]{
+    --ink:#3b414a;
+    --panel:#464c56;
+    --panel-line:#5d6470;
+    --paper:#f2efe8;
+    --paper-dim:#c8cdd4;
+    --amber:#e8a13d;
+    --amber-dim:#a97c34;
+    --green:#7dccA1;
+    --dot-rgb:242,239,232;
+    --glass-bg:rgba(59,65,74,0.82);
+    --scrim-bg:rgba(40,44,51,0.68);
+    --rail-bg:rgba(59,65,74,0.92);
+    --shell-shadow:rgba(0,0,0,0.22);
+    color-scheme:dark;
+  }
+
+  :root[data-theme="light"]{
+    --ink:#f5f2ea;
+    --panel:#ffffff;
+    --panel-line:#ddd6c8;
+    --paper:#1d2024;
+    --paper-dim:#565a62;
+    --amber:#b97a1c;
+    --amber-dim:#8a651f;
+    --green:#2f8f5c;
+    --dot-rgb:29,32,36;
+    --glass-bg:rgba(255,255,255,0.85);
+    --scrim-bg:rgba(20,20,20,0.55);
+    --rail-bg:rgba(255,255,255,0.94);
+    --shell-shadow:rgba(0,0,0,0.1);
+    color-scheme:light;
+  }
+
+  *{box-sizing:border-box; margin:0; padding:0;}
+
+  html{scroll-behavior:smooth;}
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto;}
+    *{animation-duration:0.001ms !important; animation-iteration-count:1 !important; transition-duration:0.001ms !important;}
+  }
+
+  body{
+    background:var(--ink);
+    color:var(--paper);
+    font-family:var(--font-body);
+    line-height:1.6;
+    overflow-x:hidden;
+    position:relative;
+    transition:background-color 0.5s ease, color 0.5s ease;
+  }
+
+  body, .rail, .panel, section, .card, .pill, .cert-item, .flow-item,
+  .node-dot, .avatar-frame, .contact-links a{
+    transition:background-color 0.5s ease, color 0.5s ease, border-color 0.5s ease;
+  }
+
+  /* ---------- Ambient background ---------- */
+  .bg-fx{
+    position:fixed;
+    inset:0;
+    z-index:0;
+    pointer-events:none;
+    background-image:
+      radial-gradient(circle, rgba(var(--dot-rgb),0.05) 1px, transparent 1px);
+    background-size:34px 34px;
+    background-position:-10px -10px;
+  }
+  .bg-fx::before, .bg-fx::after{
+    content:'';
+    position:absolute;
+    width:52vw;
+    height:52vw;
+    max-width:700px;
+    max-height:700px;
+    border-radius:50%;
+    filter:blur(120px);
+    opacity:0.14;
+  }
+  .bg-fx::before{
+    top:-12%;
+    left:-10%;
+    background:var(--amber);
+    animation:drift-a 34s ease-in-out infinite;
+  }
+  .bg-fx::after{
+    bottom:-14%;
+    right:-8%;
+    background:var(--green);
+    animation:drift-b 40s ease-in-out infinite;
+  }
+  @keyframes drift-a{
+    0%,100%{ transform:translate(0,0); }
+    50%{ transform:translate(4vw, 5vw); }
+  }
+  @keyframes drift-b{
+    0%,100%{ transform:translate(0,0); }
+    50%{ transform:translate(-3vw, -6vw); }
+  }
+
+  .shell, footer{ position:relative; z-index:1; }
+
+  /* ---------- Floating rupee launcher (bottom-left) ---------- */
+  .rupee-fab{
+    position:fixed;
+    left:28px;
+    bottom:28px;
+    z-index:50;
+    width:48px;
+    height:48px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:var(--glass-bg);
+    border:1px solid var(--panel-line);
+    backdrop-filter:blur(10px);
+    box-shadow:0 6px 20px var(--shell-shadow);
+    color:var(--amber);
+    font-family:var(--font-display);
+    font-size:20px;
+    font-weight:700;
+    text-decoration:none;
+    cursor:pointer;
+    transition:transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+  }
+  .rupee-fab:hover{
+    transform:translateY(-3px) scale(1.06);
+    box-shadow:0 10px 26px var(--shell-shadow);
+    background:var(--amber);
+    color:var(--panel);
+  }
+  .rupee-fab:active{ transform:translateY(-1px) scale(0.98); }
+  @media (max-width:640px){
+    .rupee-fab{ left:16px; bottom:16px; width:44px; height:44px; font-size:18px; }
+  }
+
+  /* ---------- Floating mini header ---------- */
+  .mini-header{
+    position:fixed;
+    top:28px;
+    right:48px;
+    z-index:50;
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:9px 20px 9px 9px;
+    background:var(--glass-bg);
+    border:1px solid var(--panel-line);
+    border-radius:40px;
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+    box-shadow:0 8px 24px var(--shell-shadow);
+    transform:translateY(-130%);
+    opacity:0;
+    transition:transform 0.45s cubic-bezier(.4,0,.2,1), opacity 0.4s ease, background-color 0.4s ease, border-color 0.4s ease;
+    pointer-events:none;
+  }
+  .mini-header.is-visible{
+    transform:translateY(0);
+    opacity:1;
+    pointer-events:auto;
+  }
+  .mini-avatar{
+    width:36px; height:36px;
+    border-radius:50%;
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+    flex:0 0 auto;
+    position:relative;
+  }
+  .mini-avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .mini-avatar-initials{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.02em;
+    color:var(--paper-dim);
+  }
+  .mini-text{ display:flex; flex-direction:column; line-height:1.28; }
+  .mini-name{ font-family:var(--font-display); font-weight:600; font-size:13.5px; color:var(--paper); }
+  .mini-phone{ font-family:var(--font-mono); font-size:10.5px; color:var(--paper-dim); }
+
+  @media (max-width:860px){
+    .mini-header{
+      top:70px;
+      right:16px;
+      padding:6px 14px 6px 6px;
+      gap:9px;
+    }
+    .mini-avatar{ width:28px; height:28px; }
+    .mini-name{ font-size:12px; }
+    .mini-phone{ display:none; }
+  }
+
+  /* ---------- Avatar upload ---------- */
+  .avatar-upload{ margin-bottom:26px; }
+  .avatar-frame{
+    width:128px; height:128px;
+    border-radius:50%;
+    border:1.5px dashed var(--panel-line);
+    background:var(--panel);
+    display:flex; align-items:center; justify-content:center;
+    position:relative;
+    overflow:hidden;
+    cursor:pointer;
+    transition:border-color 0.25s ease;
+  }
+  .avatar-frame:hover{ border-color:var(--amber); }
+  .avatar-frame.has-photo{ border-style:solid; border-color:var(--amber-dim); }
+  .avatar-frame img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .avatar-placeholder{
+    display:flex; flex-direction:column; align-items:center; gap:7px;
+    color:var(--paper-dim);
+    font-family:var(--font-mono);
+    font-size:10px;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    text-align:center;
+    padding:0 12px;
+  }
+  .avatar-placeholder svg{ width:22px; height:22px; stroke:var(--paper-dim); }
+  .avatar-frame.has-photo .avatar-placeholder{ display:none; }
+  .avatar-overlay{
+    position:absolute; inset:0;
+    background:rgba(18,22,28,0.68);
+    display:flex; align-items:center; justify-content:center;
+    opacity:0;
+    transition:opacity 0.25s ease;
+    font-family:var(--font-mono);
+    font-size:10px;
+    letter-spacing:0.06em;
+    color:#f2f0ea;
+    text-transform:uppercase;
+  }
+  .avatar-frame.has-photo:hover .avatar-overlay{ opacity:1; }
+  .avatar-frame:focus-visible{ outline:2px solid var(--amber); outline-offset:3px; }
+
+  .section-fx{
+    position:absolute;
+    inset:0;
+    z-index:0;
+    pointer-events:none;
+    overflow:hidden;
+  }
+  .section-fx svg{
+    position:absolute;
+  }
+  section{ position:relative; overflow:hidden; }
+  section > .eyebrow, section > h1, section > h2, section > h3,
+  section > p, section > .stat-row, section > .flow-list,
+  section > .card, section > .skill-groups, section > .cert-list,
+  section > .contact-links, section > .role-meta, section > .avatar-upload{
+    position:relative;
+    z-index:1;
+  }
+
+  a{color:var(--amber); text-decoration:none;}
+  a:hover{text-decoration:underline;}
+  a:focus-visible, button:focus-visible{outline:2px solid var(--amber); outline-offset:3px;}
+
+  ::selection{background:var(--amber); color:var(--ink);}
+
+  /* Layout shell */
+  .shell{
+    display:grid;
+    grid-template-columns:340px 1fr;
+    max-width:1400px;
+    margin:0 auto;
+  }
+
+  /* ---------- Pipeline rail ---------- */
+  .rail{
+    position:sticky;
+    top:0;
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:0 0 0 56px;
+    border-right:1px solid var(--panel-line);
+  }
+  .rail-head{
+    position:absolute;
+    top:48px;
+    left:56px;
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.12em;
+    text-transform:uppercase;
+    color:var(--paper-dim);
+  }
+  .rail-head .live-dot{
+    display:inline-block;
+    width:6px; height:6px;
+    border-radius:50%;
+    background:var(--green);
+    margin-right:8px;
+    box-shadow:0 0 8px var(--green);
+    animation:pulse-dot 2.2s ease-in-out infinite;
+  }
+  @keyframes pulse-dot{
+    0%,100%{opacity:1;}
+    50%{opacity:0.35;}
+  }
+
+  .pipe{
+    position:relative;
+    display:flex;
+    flex-direction:column;
+    gap:0;
+  }
+  .pipe-track{
+    position:absolute;
+    left:11px;
+    top:12px;
+    bottom:12px;
+    width:2px;
+    background:var(--panel-line);
+  }
+  .pipe-fill{
+    position:absolute;
+    left:11px;
+    top:12px;
+    width:2px;
+    background:linear-gradient(to bottom, var(--green), var(--amber));
+    height:0%;
+    transition:height 0.4s cubic-bezier(.4,0,.2,1);
+    box-shadow:0 0 10px rgba(232,161,61,0.5);
+  }
+
+  .node{
+    position:relative;
+    display:flex;
+    align-items:flex-start;
+    gap:18px;
+    padding:22px 24px 22px 0;
+    cursor:pointer;
+    background:none;
+    border:none;
+    text-align:left;
+    width:100%;
+    color:inherit;
+    font-family:inherit;
+  }
+  .node-dot{
+    flex:0 0 auto;
+    width:24px; height:24px;
+    border-radius:50%;
+    background:var(--panel);
+    border:2px solid var(--panel-line);
+    display:flex; align-items:center; justify-content:center;
+    transition:all 0.35s ease;
+    z-index:1;
+  }
+  .node-dot::after{
+    content:'';
+    width:6px;height:6px;
+    border-radius:50%;
+    background:var(--paper-dim);
+    transition:all 0.35s ease;
+  }
+  .node-label{
+    padding-top:1px;
+  }
+  .node-tag{
+    display:block;
+    font-family:var(--font-mono);
+    font-size:10.5px;
+    letter-spacing:0.1em;
+    color:var(--paper-dim);
+    transition:color 0.35s ease;
+  }
+  .node-title{
+    display:block;
+    font-family:var(--font-display);
+    font-size:15px;
+    font-weight:600;
+    color:var(--paper-dim);
+    margin-top:3px;
+    transition:color 0.35s ease;
+  }
+
+  .node.is-active .node-dot{
+    border-color:var(--amber);
+    background:var(--amber);
+    box-shadow:0 0 0 5px rgba(232,161,61,0.16), 0 0 16px rgba(232,161,61,0.5);
+  }
+  .node.is-active .node-dot::after{ background:rgba(0,0,0,0.55); }
+  .node.is-active .node-tag{ color:var(--amber); }
+  .node.is-active .node-title{ color:var(--paper); }
+
+  .node.is-done .node-dot{
+    border-color:var(--green);
+    background:var(--panel);
+  }
+  .node.is-done .node-dot::after{ background:var(--green); }
+  .node.is-done .node-tag{ color:var(--green); opacity:0.8; }
+  .node.is-done .node-title{ color:var(--paper-dim); }
+
+  .rail-foot{
+    position:absolute;
+    bottom:40px;
+    left:56px;
+    font-family:var(--font-mono);
+    font-size:10.5px;
+    color:var(--paper-dim);
+    letter-spacing:0.06em;
+  }
+
+  /* ---------- Content column ---------- */
+  main{
+    padding:0 64px 40px 64px;
+  }
+  section{
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:80px 0;
+    border-bottom:1px solid var(--panel-line);
+  }
+  section:last-of-type{border-bottom:none;}
+
+  .eyebrow{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.14em;
+    text-transform:uppercase;
+    color:var(--amber);
+    margin-bottom:18px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .eyebrow::before{
+    content:'';
+    width:24px; height:1px;
+    background:var(--amber);
+  }
+
+  h1{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:clamp(40px, 6vw, 72px);
+    line-height:1.02;
+    letter-spacing:-0.01em;
+    color:var(--paper);
+  }
+  h2{
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:clamp(28px, 3.4vw, 40px);
+    line-height:1.1;
+    color:var(--paper);
+    margin-bottom:8px;
+  }
+  h3{
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:19px;
+    color:var(--paper);
+  }
+
+  .role-meta{
+    font-family:var(--font-mono);
+    font-size:12.5px;
+    color:var(--paper-dim);
+    margin-top:6px;
+    letter-spacing:0.02em;
+  }
+
+  .lede{
+    font-size:19px;
+    color:var(--paper-dim);
+    max-width:56ch;
+    margin-top:22px;
+  }
+
+  .tagline{
+    font-family:var(--font-mono);
+    font-size:13px;
+    color:var(--paper-dim);
+    margin-top:28px;
+    letter-spacing:0.02em;
+  }
+  .tagline span{color:var(--green);}
+
+  .stat-row{
+    display:flex;
+    gap:48px;
+    margin-top:44px;
+    flex-wrap:wrap;
+  }
+  .stat b{
+    display:block;
+    font-family:var(--font-display);
+    font-size:34px;
+    font-weight:700;
+    color:var(--amber);
+  }
+  .stat span{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--paper-dim);
+  }
+
+  .body-text{
+    max-width:64ch;
+    color:var(--paper-dim);
+    font-size:16px;
+    margin-top:18px;
+  }
+
+  .flow-list{
+    margin-top:32px;
+    max-width:66ch;
+  }
+  .flow-item{
+    display:grid;
+    grid-template-columns:26px 1fr;
+    gap:14px;
+    padding:14px 0;
+    border-top:1px solid var(--panel-line);
+  }
+  .flow-item:last-child{border-bottom:1px solid var(--panel-line);}
+  .flow-item .glyph{
+    font-family:var(--font-mono);
+    font-size:12px;
+    color:var(--amber-dim);
+    padding-top:2px;
+  }
+  .flow-item p{
+    color:var(--paper-dim);
+    font-size:15.5px;
+  }
+  .flow-item strong{color:var(--paper); font-weight:600;}
+
+  .card{
+    margin-top:36px;
+    padding:24px 26px;
+    background:var(--panel);
+    border:1px solid var(--panel-line);
+    border-radius:4px;
+    max-width:68ch;
+  }
+  .card + .card{ margin-top:16px; }
+
+  .edu-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    gap:16px;
+    flex-wrap:wrap;
+  }
+  .edu-year{
+    font-family:var(--font-mono);
+    font-size:12.5px;
+    color:var(--amber);
+    white-space:nowrap;
+  }
+  .edu-sub{
+    font-family:var(--font-mono);
+    font-size:12.5px;
+    color:var(--paper-dim);
+    margin-top:4px;
+  }
+
+  .skill-groups{
+    margin-top:32px;
+    display:flex;
+    flex-direction:column;
+    gap:26px;
+    max-width:70ch;
+  }
+  .skill-group-label{
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:var(--paper-dim);
+    margin-bottom:12px;
+  }
+  .pill-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:9px;
+  }
+  .pill{
+    font-family:var(--font-mono);
+    font-size:12.5px;
+    padding:7px 12px;
+    border:1px solid var(--panel-line);
+    border-radius:3px;
+    color:var(--paper-dim);
+    transition:border-color 0.25s ease, color 0.25s ease;
+  }
+  .pill:hover{ border-color:var(--amber); color:var(--paper); }
+
+  .cert-list{
+    margin-top:32px;
+    max-width:64ch;
+    display:flex;
+    flex-direction:column;
+  }
+  .cert-item{
+    display:flex;
+    justify-content:space-between;
+    gap:16px;
+    padding:16px 0;
+    border-top:1px solid var(--panel-line);
+  }
+  .cert-list .cert-item:last-child{ border-bottom:1px solid var(--panel-line); }
+  .cert-name{ color:var(--paper); font-size:15.5px; font-weight:500; }
+  .cert-org{
+    font-family:var(--font-mono);
+    font-size:12px;
+    color:var(--paper-dim);
+    white-space:nowrap;
+  }
+
+  .contact-links{
+    margin-top:36px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+  .contact-links a{
+    font-family:var(--font-display);
+    font-size:22px;
+    font-weight:600;
+    color:var(--paper);
+    border-bottom:1px solid var(--panel-line);
+    padding-bottom:14px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    transition:color 0.25s ease, border-color 0.25s ease;
+  }
+  .contact-links a:hover{
+    color:var(--amber);
+    border-color:var(--amber);
+    text-decoration:none;
+  }
+  .contact-links a small{
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--paper-dim);
+    font-weight:400;
+  }
+
+  footer{
+    padding:40px 64px 60px 64px;
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--paper-dim);
+    letter-spacing:0.04em;
+    grid-column:1/-1;
+  }
+
+  /* ---------- Mobile ---------- */
+  @media (max-width: 860px){
+    .shell{ grid-template-columns:1fr; }
+    .rail{
+      position:sticky;
+      top:0;
+      height:auto;
+      flex-direction:row;
+      padding:14px 20px;
+      border-right:none;
+      border-bottom:1px solid var(--panel-line);
+      background:var(--rail-bg);
+      backdrop-filter:blur(6px);
+      z-index:10;
+      overflow-x:auto;
+      justify-content:flex-start;
+      align-items:center;
+    }
+    .rail-head, .rail-foot{ display:none; }
+    .pipe{
+      flex-direction:row;
+      gap:0;
+      width:max-content;
+    }
+    .pipe-track{
+      left:12px; right:12px; top:auto; bottom:auto;
+      top:50%; height:2px; width:auto; transform:translateY(-50%);
+    }
+    .pipe-fill{
+      left:12px; top:50%; height:2px; width:0%; transform:translateY(-50%);
+      background:linear-gradient(to right, var(--green), var(--amber));
+      transition:width 0.4s cubic-bezier(.4,0,.2,1);
+    }
+    .node{ padding:14px 20px 14px 0; }
+    .node-label{ display:none; }
+    main{ padding:0 22px 20px 22px; }
+    section{ padding:56px 0; min-height:auto; }
+    .stat-row{ gap:32px; }
+  }
+</style>
+<script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "xp2jatwhh2");
+</script>
+</head>
+<body>
+
+<div class="bg-fx" aria-hidden="true"></div>
+
+<a
+  class="rupee-fab"
+  id="spendwiseFab"
+  href="https://script.google.com/macros/s/AKfycbzTqUuw7n7rZ_zPB2bsY3Zl_o-TicjEIaFWNWu58wImgwW7z6bkTWQy9gwTBLQQia5E/exec"
+  target="_blank"
+  rel="noopener"
+  title="Open SpendWise"
+  aria-label="Open SpendWise"
+>₹</a>
+
+<div class="mini-header" id="miniHeader">
+  <div class="mini-avatar">
+<img
+    id="miniAvatarImg"
+    src="profile.jpeg"
+    alt="Arpit Acharya">  </div>
+  <div class="mini-text">
+    <span class="mini-name">Arpit Acharya</span>
+    <span class="mini-phone">+91 86288 90388</span>
+  </div>
+</div>
+
+<div class="shell">
+
+  <!-- ============ PIPELINE RAIL ============ -->
+  <nav class="rail" aria-label="Career pipeline">
+    <div class="pipe">
+      <div class="pipe-track"></div>
+      <div class="pipe-fill" id="pipeFill"></div>
+
+      <button class="node" data-target="hero">
+        <span class="node-dot"></span>
+        <span class="node-label">
+          <span class="node-tag">01 · PROFILE</span>
+          <span class="node-title">Arpit Acharya</span>
+        </span>
+      </button>
+      <button class="node" data-target="vg">
+        <span class="node-dot"></span>
+        <span class="node-label">
+          <span class="node-tag">02 · CURRENT ROLE</span>
+          <span class="node-title">VG Learning Destination</span>
+        </span>
+      </button>
+      <button class="node" data-target="icai">
+        <span class="node-dot"></span>
+        <span class="node-label">
+          <span class="node-tag">03 · PRIOR ROLE</span>
+          <span class="node-title">ICAI</span>
+        </span>
+      </button>
+      <button class="node" data-target="education">
+        <span class="node-dot"></span>
+        <span class="node-label">
+          <span class="node-tag">04 · FOUNDATION</span>
+          <span class="node-title">Education</span>
+        </span>
+      </button>
+      <button class="node" data-target="skills">
+        <span class="node-dot"></span>
+        <span class="node-label">
+          <span class="node-tag">05 · TOOLKIT</span>
+          <span class="node-title">Skills</span>
+        </span>
+      </button>
+      <button class="node" data-target="certs">
+        <span class="node-dot"></span>
+        <span class="node-label">
+          <span class="node-tag">06 · CREDENTIALS</span>
+          <span class="node-title">Certifications</span>
+        </span>
+      </button>
+      <button class="node" data-target="contact">
+        <span class="node-dot"></span>
+        <span class="node-label">
+          <span class="node-tag">07 · OUTPUT</span>
+          <span class="node-title">Get in Touch</span>
+        </span>
+      </button>
+    </div>
+    <div class="rail-foot">BENGALURU, INDIA</div>
+  </nav>
+
+  <!-- ============ MAIN CONTENT ============ -->
+  <main>
+
+    <section id="hero">
+      <div class="section-fx" aria-hidden="true">
+        <svg width="460" height="460" viewBox="0 0 400 400" style="top:-60px; right:-80px; opacity:0.16;">
+          <g fill="none" stroke="var(--paper-dim)" stroke-width="1">
+            <line x1="60" y1="80" x2="220" y2="140"/>
+            <line x1="220" y1="140" x2="340" y2="60"/>
+            <line x1="220" y1="140" x2="180" y2="300"/>
+            <line x1="180" y1="300" x2="340" y2="360"/>
+            <line x1="180" y1="300" x2="40" y2="340"/>
+            <line x1="60" y1="80" x2="180" y2="300"/>
+          </g>
+          <g fill="var(--amber)">
+            <circle cx="220" cy="140" r="4"/>
+          </g>
+          <g fill="var(--paper-dim)">
+            <circle cx="60" cy="80" r="3.5"/>
+            <circle cx="340" cy="60" r="3.5"/>
+            <circle cx="180" cy="300" r="4.5"/>
+            <circle cx="340" cy="360" r="3.5"/>
+            <circle cx="40" cy="340" r="3.5"/>
+          </g>
+        </svg>
+      </div>
+<div class="avatar-upload">
+  <div class="avatar-frame has-photo">
+    <img
+      id="avatarImg"
+      src="profile.jpeg"
+      alt="Arpit Acharya">
+  </div>
+</div>
+      <div class="eyebrow">Operations &amp; Systems</div>
+      <h1>Arpit Acharya</h1>
+      <p class="lede">MBA graduate and operations leader who turns manual, inefficient processes into scalable systems — through CRM redesign, workflow automation, and hands-on team leadership.</p>
+      <p class="tagline">4+ years in the field <span>·</span> 10–12 person team led <span>·</span> Bengaluru, India</p>
+      <div class="stat-row">
+        <div class="stat"><b>250%+</b><span>Business growth driven</span></div>
+        <div class="stat"><b>30+</b><span>Franchise partners managed</span></div>
+        <div class="stat"><b>10–12</b><span>Team members mentored</span></div>
+      </div>
+    </section>
+
+    <section id="vg">
+      <div class="section-fx" aria-hidden="true">
+        <svg width="420" height="340" viewBox="0 0 420 340" style="top:40px; right:-70px; opacity:0.14;">
+          <g fill="none" stroke="var(--paper-dim)" stroke-width="1">
+            <line x1="0" y1="0" x2="0" y2="340"/>
+            <line x1="70" y1="0" x2="70" y2="340"/>
+            <line x1="140" y1="0" x2="140" y2="340"/>
+            <line x1="210" y1="0" x2="210" y2="340"/>
+            <line x1="280" y1="0" x2="280" y2="340"/>
+            <line x1="350" y1="0" x2="350" y2="340"/>
+            <line x1="420" y1="0" x2="420" y2="340"/>
+            <line x1="0" y1="0" x2="420" y2="0"/>
+            <line x1="0" y1="68" x2="420" y2="68"/>
+            <line x1="0" y1="136" x2="420" y2="136"/>
+            <line x1="0" y1="204" x2="420" y2="204"/>
+            <line x1="0" y1="272" x2="420" y2="272"/>
+            <line x1="0" y1="340" x2="420" y2="340"/>
+          </g>
+          <rect x="140" y="68" width="70" height="68" fill="var(--amber)" opacity="0.35"/>
+          <rect x="280" y="204" width="70" height="68" fill="var(--green)" opacity="0.3"/>
+        </svg>
+      </div>
+      <div class="eyebrow">Stage 02 — Current Role</div>
+      <h2>Operations Executive</h2>
+      <p class="role-meta">VG Learning Destination · Oct 2023 – Present</p>
+      <p class="body-text">Owns end-to-end operations across admissions, student support, and internal functions — the kind of role where the CRM, the team, and the reporting all have to move in sync for growth to hold.</p>
+
+      <div class="flow-list">
+        <div class="flow-item">
+          <span class="glyph">→</span>
+          <p><strong>Drove 250%+ business growth</strong> by optimizing operations, improving processes, and enabling data-driven decision-making across the organization.</p>
+        </div>
+        <div class="flow-item">
+          <span class="glyph">→</span>
+          <p><strong>Streamlined end-to-end business operations</strong> spanning admissions, student support, and internal functions, improving turnaround time and consistency.</p>
+        </div>
+        <div class="flow-item">
+          <span class="glyph">→</span>
+          <p><strong>Led and mentored a 10–12 member operations team,</strong> coordinating closely with team leaders to align execution with business goals.</p>
+        </div>
+        <div class="flow-item">
+          <span class="glyph">→</span>
+          <p><strong>Managed operational relationships with 30+ franchise partners,</strong> strengthening collaboration and consistency across locations.</p>
+        </div>
+        <div class="flow-item">
+          <span class="glyph">→</span>
+          <p><strong>Redesigned the CRM with a data-driven lead allocation system,</strong> improving enrollment efficiency and lead response time.</p>
+        </div>
+        <div class="flow-item">
+          <span class="glyph">→</span>
+          <p><strong>Overhauled backend CRM workflows for post-enrollment operations,</strong> reducing manual effort and improving data accuracy.</p>
+        </div>
+        <div class="flow-item">
+          <span class="glyph">→</span>
+          <p><strong>Built workflow automations using Google Apps Script,</strong> eliminating repetitive manual tasks and freeing up team capacity.</p>
+        </div>
+        <div class="flow-item">
+          <span class="glyph">→</span>
+          <p><strong>Partnered with the tech team on redevelopment of the company website,</strong> contributing to an improved user experience.</p>
+        </div>
+        <div class="flow-item">
+          <span class="glyph">→</span>
+          <p><strong>Created dashboards and reports in Google Sheets,</strong> giving leadership real-time visibility into key operational metrics.</p>
+        </div>
+        <div class="flow-item">
+          <span class="glyph">→</span>
+          <p><strong>Collaborated with senior management</strong> to design and implement scalable process improvements across the organization.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="icai">
+      <div class="section-fx" aria-hidden="true">
+        <svg width="380" height="380" viewBox="0 0 380 380" style="bottom:-90px; right:-60px; opacity:0.14;">
+          <g fill="none" stroke="var(--paper-dim)" stroke-width="1">
+            <rect x="20" y="40" width="340" height="300" rx="6"/>
+            <line x1="20" y1="110" x2="360" y2="110"/>
+            <line x1="106" y1="40" x2="106" y2="340"/>
+            <line x1="192" y1="40" x2="192" y2="340"/>
+            <line x1="278" y1="40" x2="278" y2="340"/>
+            <line x1="20" y1="180" x2="360" y2="180"/>
+            <line x1="20" y1="250" x2="360" y2="250"/>
+          </g>
+          <circle cx="149" cy="145" r="5" fill="var(--amber)" opacity="0.5"/>
+          <circle cx="235" cy="215" r="5" fill="var(--green)" opacity="0.45"/>
+          <circle cx="63" cy="285" r="5" fill="var(--paper-dim)" opacity="0.5"/>
+        </svg>
+      </div>
+      <div class="eyebrow">Stage 03 — Prior Role</div>
+      <h2>Management Trainee</h2>
+      <p class="role-meta">The Institute of Chartered Accountants of India (ICAI) · Nov 2022 – Sep 2023</p>
+      <p class="body-text">Before operations at scale, this role was where execution discipline was built — planning and running professional events end-to-end.</p>
+      <div class="flow-list">
+        <div class="flow-item">
+          <span class="glyph">→</span>
+          <p><strong>Planned and coordinated professional events end-to-end,</strong> including logistics, budgeting, vendor management, branding, and marketing.</p>
+        </div>
+        <div class="flow-item">
+          <span class="glyph">→</span>
+          <p><strong>Coordinated cross-functional teams</strong> to deliver webinars, conferences, and award ceremonies.</p>
+        </div>
+        <div class="flow-item">
+          <span class="glyph">→</span>
+          <p><strong>Conducted post-event evaluations</strong> to drive continuous process improvement.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="education">
+      <div class="section-fx" aria-hidden="true">
+        <svg width="400" height="300" viewBox="0 0 400 300" style="top:30px; right:-50px; opacity:0.14;">
+          <g fill="none" stroke="var(--paper-dim)" stroke-width="1">
+            <polygon points="200,30 380,90 200,150 20,90"/>
+            <line x1="90" y1="112" x2="90" y2="200"/>
+            <line x1="310" y1="112" x2="310" y2="200"/>
+            <path d="M90,200 Q200,240 310,200" />
+          </g>
+          <circle cx="380" cy="90" r="4" fill="var(--amber)" opacity="0.5"/>
+        </svg>
+      </div>
+      <div class="eyebrow">Stage 04 — Foundation</div>
+      <h2>Education</h2>
+      <div class="card">
+        <div class="edu-row">
+          <h3>MBA</h3>
+          <span class="edu-year">2020 – 2022</span>
+        </div>
+        <p class="edu-sub">Dr. B.R. Ambedkar National Institute of Technology (NIT), Jalandhar</p>
+      </div>
+      <div class="card">
+        <div class="edu-row">
+          <h3>B.Com</h3>
+          <span class="edu-year">2016 – 2019</span>
+        </div>
+        <p class="edu-sub">Chandigarh University</p>
+      </div>
+      <div class="card">
+        <div class="edu-row">
+          <h3>12th, Commerce</h3>
+          <span class="edu-year">2016</span>
+        </div>
+        <p class="edu-sub">Anuradha Public Sr. Sec. School (CBSE)</p>
+      </div>
+      <div class="card">
+        <div class="edu-row">
+          <h3>10th</h3>
+          <span class="edu-year">2014</span>
+        </div>
+        <p class="edu-sub">Mount Carmel Sr. Sec. School (ICSE)</p>
+      </div>
+    </section>
+
+    <section id="skills">
+      <div class="section-fx" aria-hidden="true">
+        <svg width="440" height="380" viewBox="0 0 440 380" style="top:-30px; right:-70px; opacity:0.14;">
+          <g fill="none" stroke="var(--paper-dim)" stroke-width="1">
+            <!-- gear -->
+            <circle cx="90" cy="90" r="34"/>
+            <circle cx="90" cy="90" r="10"/>
+            <line x1="90" y1="46" x2="90" y2="58"/>
+            <line x1="90" y1="122" x2="90" y2="134"/>
+            <line x1="46" y1="90" x2="58" y2="90"/>
+            <line x1="122" y1="90" x2="134" y2="90"/>
+            <line x1="59" y1="59" x2="67" y2="67"/>
+            <line x1="113" y1="113" x2="121" y2="121"/>
+            <line x1="121" y1="59" x2="113" y2="67"/>
+            <line x1="67" y1="113" x2="59" y2="121"/>
+            <!-- bar chart -->
+            <rect x="260" y="120" width="24" height="70" />
+            <rect x="296" y="90" width="24" height="100" />
+            <rect x="332" y="150" width="24" height="40" />
+            <line x1="250" y1="190" x2="366" y2="190"/>
+            <!-- cell grid -->
+            <rect x="60" y="240" width="150" height="100"/>
+            <line x1="110" y1="240" x2="110" y2="340"/>
+            <line x1="160" y1="240" x2="160" y2="340"/>
+            <line x1="60" y1="273" x2="210" y2="273"/>
+            <line x1="60" y1="306" x2="210" y2="306"/>
+          </g>
+          <rect x="110" y="273" width="50" height="33" fill="var(--amber)" opacity="0.3"/>
+          <rect x="296" y="90" width="24" height="100" fill="var(--green)" opacity="0.25"/>
+        </svg>
+      </div>
+      <div class="eyebrow">Stage 05 — Toolkit</div>
+      <h2>Skills</h2>
+      <p class="body-text">The systems side and the people side, kept in equal condition.</p>
+      <div class="skill-groups">
+        <div>
+          <div class="skill-group-label">Technical</div>
+          <div class="pill-row">
+            <span class="pill">Google Sheets</span>
+            <span class="pill">Google Apps Script</span>
+            <span class="pill">Microsoft Excel</span>
+            <span class="pill">Advanced Excel</span>
+            <span class="pill">VBA</span>
+            <span class="pill">Dashboard Development</span>
+            <span class="pill">Data Analysis</span>
+            <span class="pill">Workflow Automation</span>
+            <span class="pill">CRM Design &amp; Optimization</span>
+            <span class="pill">Process Documentation</span>
+          </div>
+        </div>
+        <div>
+          <div class="skill-group-label">Core</div>
+          <div class="pill-row">
+            <span class="pill">Business Operations</span>
+            <span class="pill">Operations Management</span>
+            <span class="pill">Team Leadership</span>
+            <span class="pill">Process Improvement</span>
+            <span class="pill">Franchise Operations</span>
+            <span class="pill">Stakeholder Management</span>
+            <span class="pill">Cross-functional Collaboration</span>
+            <span class="pill">Project Coordination</span>
+            <span class="pill">Change Management</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="certs">
+      <div class="section-fx" aria-hidden="true">
+        <svg width="380" height="380" viewBox="0 0 380 380" style="top:20px; right:-70px; opacity:0.14;">
+          <g fill="none" stroke="var(--paper-dim)" stroke-width="1">
+            <circle cx="190" cy="150" r="95"/>
+            <circle cx="190" cy="150" r="70"/>
+            <path d="M150,215 L130,320 L190,290 L250,320 L230,215"/>
+          </g>
+          <circle cx="190" cy="150" r="4" fill="var(--amber)" opacity="0.5"/>
+        </svg>
+        <svg width="220" height="220" viewBox="0 0 220 220" style="bottom:-60px; left:calc(50% - 40px); opacity:0.09;">
+          <circle cx="110" cy="110" r="90" fill="none" stroke="var(--paper-dim)" stroke-width="1"/>
+          <circle cx="110" cy="110" r="65" fill="none" stroke="var(--paper-dim)" stroke-width="1"/>
+        </svg>
+      </div>
+      <div class="eyebrow">Stage 06 — Credentials</div>
+      <h2>Certifications</h2>
+      <div class="cert-list">
+        <div class="cert-item">
+          <span class="cert-name">Managing Data Analysis</span>
+          <span class="cert-org">Johns Hopkins University</span>
+        </div>
+        <div class="cert-item">
+          <span class="cert-name">Project Management</span>
+          <span class="cert-org">Coursera</span>
+        </div>
+        <div class="cert-item">
+          <span class="cert-name">Business and Operations Analytics</span>
+          <span class="cert-org"></span>
+        </div>
+        <div class="cert-item">
+          <span class="cert-name">The Fundamentals of Digital Marketing</span>
+          <span class="cert-org">Google</span>
+        </div>
+        <div class="cert-item">
+          <span class="cert-name">Six Sigma White Belt Certification</span>
+          <span class="cert-org">The Council for Six Sigma Certification</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="contact">
+      <div class="section-fx" aria-hidden="true">
+        <svg width="480" height="480" viewBox="0 0 480 480" style="top:calc(50% - 240px); right:-180px; opacity:0.16;">
+          <g fill="none" stroke="var(--paper-dim)" stroke-width="1">
+            <circle cx="300" cy="240" r="60"/>
+            <circle cx="300" cy="240" r="110"/>
+            <circle cx="300" cy="240" r="160"/>
+            <circle cx="300" cy="240" r="210"/>
+          </g>
+          <circle cx="300" cy="240" r="5" fill="var(--amber)" opacity="0.6"/>
+        </svg>
+      </div>
+      <div class="eyebrow">Stage 07 — Output</div>
+      <h2>Let's talk</h2>
+      <p class="body-text">Open to conversations about operations, systems, and growth. Reach out directly.</p>
+      <div class="contact-links">
+        <a href="mailto:hi@arpitacharya.com">Email <small>hi@arpitacharya.com</small></a>
+        <a href="tel:+918628890388">Phone <small>+91 86288 90388</small></a>
+        <a href="https://linkedin.com/in/arpitacharya23" target="_blank" rel="noopener">LinkedIn <small>linkedin.com/in/arpitacharya23</small></a>
+        <a href="resume.pdf" download>Resume <small>Download PDF</small></a>
+      </div>
+    </section>
+
+  </main>
+
+
+</div>
+
+<script>
+(function(){
+  var sections = Array.from(document.querySelectorAll('main section'));
+  var nodes = Array.from(document.querySelectorAll('.node'));
+  var pipeFill = document.getElementById('pipeFill');
+  var isMobile = window.matchMedia('(max-width: 860px)').matches;
+
+  var idToNode = {};
+  nodes.forEach(function(n){ idToNode[n.getAttribute('data-target')] = n; });
+
+  nodes.forEach(function(n){
+    n.addEventListener('click', function(){
+      var id = n.getAttribute('data-target');
+      var el = document.getElementById(id);
+      if(el){ el.scrollIntoView({behavior:'smooth', block: isMobile ? 'start' : 'center'}); }
+    });
+  });
+
+  function setActive(activeIndex){
+    nodes.forEach(function(n, i){
+      n.classList.remove('is-active','is-done');
+      if(i < activeIndex) n.classList.add('is-done');
+      if(i === activeIndex) n.classList.add('is-active');
+    });
+    var pct = sections.length > 1 ? (activeIndex / (sections.length - 1)) * 100 : 0;
+    if(isMobile){
+      pipeFill.style.width = pct + '%';
+    } else {
+      pipeFill.style.height = pct + '%';
+    }
+  }
+
+  var observer = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if(entry.isIntersecting){
+        var idx = sections.indexOf(entry.target);
+        if(idx > -1) setActive(idx);
+      }
+    });
+  }, { threshold: 0.5, rootMargin: '-10% 0px -10% 0px' });
+
+  sections.forEach(function(s){ observer.observe(s); });
+
+  window.addEventListener('resize', function(){
+    isMobile = window.matchMedia('(max-width: 860px)').matches;
+  });
+
+  setActive(0);
+
+  // ---------- Floating mini header: appears once the profile section scrolls out ----------
+  var heroSection = document.getElementById('hero');
+  var miniHeader = document.getElementById('miniHeader');
+  if(heroSection && miniHeader){
+    var heroObserver = new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        var scrolledPast = !entry.isIntersecting && entry.boundingClientRect.top < 0;
+        miniHeader.classList.toggle('is-visible', scrolledPast);
+      });
+    }, { threshold: 0, rootMargin: '-80px 0px 0px 0px' });
+    heroObserver.observe(heroSection);
+  }
+
+  // ---------- Time-of-day theme ----------
+  function themeForHour(h){
+    if(h >= 8 && h < 18) return 'light';                         // daytime
+    if((h >= 5 && h < 8) || (h >= 18 && h < 21)) return 'grey';  // dawn / dusk
+    return 'dark';                                                // night
+  }
+
+  function applyTheme(theme){
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+
+  // Re-check the clock periodically in case the page is left open across
+  // a time boundary.
+  setInterval(function(){
+    applyTheme(themeForHour(new Date().getHours()));
+  }, 5 * 60 * 1000);
+})();
+</script>
+
+</body>
+</html>
